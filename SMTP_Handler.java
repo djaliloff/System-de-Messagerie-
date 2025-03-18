@@ -28,7 +28,7 @@ public class SMTP_Handler {
                 System.out.println("Commande reçue : " + command);
 
                 if (command.startsWith("HELO") ) {
-//                    |EHLO
+//                    |EHLO |auth|starttls timeout concurrence
                     writer.println("250 OK");
                 } else if (command.startsWith("MAIL FROM:")) {
                     sender = cleanEmail(command.substring(10).trim());
