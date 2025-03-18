@@ -1,15 +1,19 @@
 import java.io.*;
 import java.net.Socket;
+import java.util.HashSet;
+import java.util.Set;
+
 public class SMTP_Handler {
     private Socket clientSocket;
     private BufferedReader reader;
     private PrintWriter writer;
     private String sender;
-    private String recipient;
+    private Set<String> recipients;
     private StringBuilder emailContent;
 
     public SMTP_Handler(Socket socket) {
         this.clientSocket = socket;
+        this.recipients = new HashSet<>();
     }
 
     public void handleClient() {
@@ -17,36 +21,60 @@ public class SMTP_Handler {
             reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             writer = new PrintWriter(clientSocket.getOutputStream(), true);
 
-            writer.println("220 Simple SMTP Server Ready");
+            writer.println("220 Service ready");
 
             String command;
             while ((command = reader.readLine()) != null) {
                 System.out.println("Commande reçue : " + command);
 
-                if (command.startsWith("HELO") || command.startsWith("EHLO")) {
-                    writer.println("250 Hello " + command.split(" ")[1]);
+                if (command.startsWith("HELO") ) {
+//                    |EHLO
+                    writer.println("250 OK");
                 } else if (command.startsWith("MAIL FROM:")) {
-                    sender = command.substring(10).trim();
+                    sender = cleanEmail(command.substring(10).trim());
                     writer.println("250 OK");
                 } else if (command.startsWith("RCPT TO:")) {
-                    recipient = command.substring(8).trim();
-                    writer.println("250 OK");
+                    if (sender == null || sender.isEmpty()) {
+                        writer.println("503 Bad sequence of commands");
+                    } else {
+                        String recipient = cleanEmail(command.substring(8).trim());
+                        recipients.add(recipient);
+                        writer.println("250 OK " + recipient);
+                    }
                 } else if (command.equals("DATA")) {
+                    if (recipients.isEmpty()) {
+                        writer.println("554 No recipients specified");
+                        continue;
+                    }
                     writer.println("354 Start mail input; end with <CRLF>.<CRLF>");
                     emailContent = new StringBuilder();
-
                     String line;
                     while (!(line = reader.readLine()).equals(".")) {
                         emailContent.append(line).append("\n");
                     }
-
-                    MailStorage.saveEmail(recipient, sender ,emailContent.toString());
+                    for (String recipient : recipients) {
+                        MailStorage.saveEmail(recipient, sender, emailContent.toString());
+                    }
                     writer.println("250 OK Message received");
+                } else if (command.equals("RSET")) {
+                    sender = null;
+                    recipients.clear();
+                    emailContent = null;
+                    writer.println("250 OK Reset state");
+                } else if (command.equals("NOOP")) {
+                    writer.println("250 OK");
+                } else if (command.startsWith("VRFY")) {
+                    String user = cleanEmail(command.substring(5).trim());
+                    if (verifyUser(user)) {
+                        writer.println("250 OK " + user);
+                    } else {
+                        writer.println("550 User not found");
+                    }
                 } else if (command.equals("QUIT")) {
-                    writer.println("221 Bye");
+                    writer.println("221 Service closing transmission channel");
                     break;
                 } else {
-                    writer.println("500 Commande non reconnue");
+                    writer.println("500 Syntax error, command unrecognized");
                 }
             }
         } catch (IOException e) {
@@ -58,5 +86,14 @@ public class SMTP_Handler {
                 e.printStackTrace();
             }
         }
+    }
+
+    private boolean verifyUser(String email) {
+        return new File("mailserver/" + email).exists();
+    }
+
+
+    private String cleanEmail(String email) {
+        return email.replaceAll("[<>]", ""); // Supprime les chevrons < >
     }
 }
