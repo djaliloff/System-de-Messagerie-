@@ -38,11 +38,13 @@ public class POP3_Handler {
                     }
                 } else if (command.startsWith("PASS ")) {
                     if (currentUser != null) {
-                        writer.println("+OK Password accepted");
+                        writer.println("+OK"); // Toujours OK
                         loadUserEmails();
                     } else {
                         writer.println("-ERR Login first with USER");
                     }
+                } else if (command.equals("STAT")) {
+                    writer.println("+OK " + emails.size() + " " + getTotalSize());
                 } else if (command.equals("LIST")) {
                     writer.println("+OK " + emails.size() + " messages");
                     for (int i = 0; i < emails.size(); i++) {
@@ -70,6 +72,8 @@ public class POP3_Handler {
                         markedForDeletion.set(i, false);
                     }
                     writer.println("+OK Reset completed");
+                } else if (command.equals("NOOP")) {
+                    writer.println("+OK");
                 } else if (command.equals("QUIT")) {
                     deleteMarkedEmails();
                     writer.println("+OK POP3 server signing off");
@@ -108,6 +112,14 @@ public class POP3_Handler {
                 }
             }
         }
+    }
+
+    private long getTotalSize() {
+        long totalSize = 0;
+        for (File email : emails) {
+            totalSize += email.length();
+        }
+        return totalSize;
     }
 
     private void sendEmail(File emailFile) throws IOException {
