@@ -31,19 +31,25 @@ public class SMTP_Handler {
 //                    |EHLO |auth|starttls timeout concurrence
                     writer.println("250 OK");
                 } else if (command.startsWith("MAIL FROM:")) {
-                    sender = cleanEmail(command.substring(10).trim());
-                    writer.println("250 OK");
+                    if (isValidMail(command,10)){
+                        sender = cleanEmail(command.substring(10).trim());
+                        writer.println("250 OK");
+                    }else
+                        writer.println("501 Syntax error in parameters or arguments");
                 } else if (command.startsWith("RCPT TO:")) {
                     if (sender == null || sender.isEmpty()) {
                         writer.println("503 Bad sequence of commands");
                     } else {
-                        String recipient = cleanEmail(command.substring(8).trim());
-                        recipients.add(recipient);
-                        writer.println("250 OK " + recipient);
+                        if (isValidMail(command,8)) {
+                            String recipient = cleanEmail(command.substring(8).trim());
+                            recipients.add(recipient);
+                            writer.println("250 OK " + recipient);
+                        }else
+                            writer.println("501 Syntax error in parameters or arguments");
                     }
                 } else if (command.equals("DATA")) {
                     if (recipients.isEmpty()) {
-                        writer.println("554 No recipients specified");
+                        writer.println("503 Bad sequence of commands");
                         continue;
                     }
                     writer.println("354 Start mail input; end with <CRLF>.<CRLF>");
@@ -64,12 +70,15 @@ public class SMTP_Handler {
                 } else if (command.equals("NOOP")) {
                     writer.println("250 OK");
                 } else if (command.startsWith("VRFY")) {
-                    String user = cleanEmail(command.substring(5).trim());
-                    if (verifyUser(user)) {
-                        writer.println("250 OK " + user);
-                    } else {
-                        writer.println("550 User not found");
-                    }
+                    if (isValidMail(command,8)) {
+                        String user = cleanEmail(command.substring(5).trim());
+                        if (verifyUser(user)) {
+                            writer.println("250 OK " + user);
+                        } else {
+                            writer.println("550 User not found");
+                        }
+                    }else
+                        writer.println("501 Syntax error in parameters or arguments");
                 } else if (command.equals("QUIT")) {
                     writer.println("221 Service closing transmission channel");
                     break;
@@ -95,5 +104,10 @@ public class SMTP_Handler {
 
     private String cleanEmail(String email) {
         return email.replaceAll("[<>]", ""); // Supprime les chevrons < >
+    }
+
+    private boolean isValidMail(String command,int deb) {
+        String email = command.substring(deb).trim();
+        return email.matches("<[^@]+@[^@]+\\.[^@]+>");
     }
 }

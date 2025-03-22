@@ -1,0 +1,5 @@
+From: bob@example.com
+To: user1@example.com
+Date: 2025-03-22 08:27:07
+
+Email 2 envoy� par Bob.

@@ -1,0 +1,5 @@
+From: bob@example.com
+To: receiver3@eoc.dz
+Date: 2025-03-22 08:51:50
+
+15 15 15 15 15
