@@ -1,0 +1,22 @@
+# Ignorer les fichiers et dossiers de build
+/out/
+/target/
+/lib/
+/src/main/java/mailserver/
+*.class
+
+# Ignorer les configurations d'IDE (IntelliJ IDEA, Eclipse, VS Code)
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Ignorer les logs et fichiers temporaires
+*.log
+*.tmp
+
+# Ignorer d'autres fichiers système inutiles
+.DS_Store
+Thumbs.db

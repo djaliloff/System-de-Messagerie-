@@ -1,6 +1,0 @@
-From: djt@eoc.dz
-To: receiver1@eoc.dz
-Date: 2025-03-21 18:17:05
-
-THE first messqg
-bye!

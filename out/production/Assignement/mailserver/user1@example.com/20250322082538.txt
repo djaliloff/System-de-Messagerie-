@@ -1,5 +1,0 @@
-From: alice@example.com
-To: user1@example.com
-Date: 2025-03-22 08:25:38
-
-Email 1 envoy� par Alice.
