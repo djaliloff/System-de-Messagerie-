@@ -1,4 +1,4 @@
-package Servers;
+package Servers.Authentification;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;

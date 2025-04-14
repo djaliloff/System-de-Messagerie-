@@ -1,4 +1,4 @@
-package Servers;
+package Servers.Client;
 
 import Servers.Authentification.AuthService;
 

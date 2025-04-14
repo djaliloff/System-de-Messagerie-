@@ -1,4 +1,4 @@
-package Servers;
+package Servers.SMTP;
 
 import java.io.IOException;
 import java.net.ServerSocket;

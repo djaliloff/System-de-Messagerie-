@@ -1,6 +1,7 @@
-package Servers;
+package Servers.SMTP;
 
 import Servers.Authentification.AuthService;
+import Servers.Utils.MailStorage;
 
 import java.io.*;
 import java.net.Socket;

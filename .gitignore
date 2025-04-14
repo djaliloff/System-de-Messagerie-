@@ -2,7 +2,7 @@
 /out/
 /target/
 /lib/
-/src/main/java/mailserver/
+/mailserver/
 *.class
 
 # Ignorer les configurations d'IDE (IntelliJ IDEA, Eclipse, VS Code)

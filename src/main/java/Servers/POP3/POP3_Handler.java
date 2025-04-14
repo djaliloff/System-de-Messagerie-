@@ -1,4 +1,4 @@
-package Servers;
+package Servers.POP3;
 
 import Servers.Authentification.AuthService;
 

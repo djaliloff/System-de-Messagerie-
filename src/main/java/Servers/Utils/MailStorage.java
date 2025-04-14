@@ -1,4 +1,4 @@
-package Servers;
+package Servers.Utils;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class MailStorage {
-    private static final String STORAGE_DIR = "mailserver/";
+    private static final String STORAGE_DIR = "src/main/java/Servers/Utils/mailserver/";
     private static final Object fileLock = new Object();
 
     public static void saveEmail(String recipient, String sender, String content) {

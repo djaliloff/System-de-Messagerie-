@@ -1,4 +1,4 @@
-package Servers;
+package Servers.Authentification;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.RemoteException;
 import java.security.MessageDigest;

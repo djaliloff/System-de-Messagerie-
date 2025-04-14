@@ -1,5 +1,5 @@
 package Clients;
-import Servers.AuthService;
+import Servers.Authentification.AuthService;
 
 import java.rmi.Naming;
 
