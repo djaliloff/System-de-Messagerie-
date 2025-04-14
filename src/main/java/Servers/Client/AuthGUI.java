@@ -1,5 +1,7 @@
 package Servers;
 
+import Servers.Authentification.AuthService;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;

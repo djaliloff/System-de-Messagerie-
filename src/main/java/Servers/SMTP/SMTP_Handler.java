@@ -1,5 +1,7 @@
 package Servers;
 
+import Servers.Authentification.AuthService;
+
 import java.io.*;
 import java.net.Socket;
 import java.rmi.RemoteException;
