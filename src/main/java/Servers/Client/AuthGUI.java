@@ -6,16 +6,16 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
 public class AuthGUI extends JFrame {
     private AuthService authService;
     private JTextField usernameField;
+    private JTextField emailField;
     private JPasswordField passwordField;
     private JTextArea logArea;
-    private JButton  registerButton, updateButton, deleteButton;
+    private JButton loginButton, registerButton, updateButton, deleteButton;
 
     public AuthGUI() {
         initUI();
@@ -35,7 +35,7 @@ public class AuthGUI extends JFrame {
 
     private void initUI() {
         setTitle("Email System Authentication");
-        setSize(500, 400);
+        setSize(500, 450);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(Color.WHITE);
@@ -44,14 +44,17 @@ public class AuthGUI extends JFrame {
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         mainPanel.setBackground(Color.WHITE);
 
-        JPanel inputPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        JPanel inputPanel = new JPanel(new GridLayout(3, 2, 10, 10));
         inputPanel.setBackground(Color.WHITE);
 
         usernameField = createSimpleTextField();
+        emailField = createSimpleTextField();
         passwordField = createSimplePasswordField();
 
         inputPanel.add(createSimpleLabel("Username:"));
         inputPanel.add(usernameField);
+        inputPanel.add(createSimpleLabel("Email:"));
+        inputPanel.add(emailField);
         inputPanel.add(createSimpleLabel("Password:"));
         inputPanel.add(passwordField);
 
@@ -59,10 +62,12 @@ public class AuthGUI extends JFrame {
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         buttonPanel.setBackground(Color.WHITE);
 
-        registerButton = createNeutralButton("Register", new Color(70, 130, 180));
+        loginButton = createNeutralButton("Login", new Color(70, 130, 180));
+        registerButton = createNeutralButton("Register", new Color(100, 149, 237));
         updateButton = createNeutralButton("Update", new Color(169, 169, 169));
         deleteButton = createNeutralButton("Delete", new Color(205, 92, 92));
 
+        buttonPanel.add(loginButton);
         buttonPanel.add(registerButton);
         buttonPanel.add(updateButton);
         buttonPanel.add(deleteButton);
@@ -85,7 +90,6 @@ public class AuthGUI extends JFrame {
         add(mainPanel);
     }
 
-    // UI Components
     private JTextField createSimpleTextField() {
         JTextField field = new JTextField();
         field.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -129,6 +133,7 @@ public class AuthGUI extends JFrame {
 
         button.addActionListener(e -> {
             switch (text) {
+                case "Login" -> performLogin();
                 case "Register" -> performRegistration();
                 case "Update" -> performUpdate();
                 case "Delete" -> performDelete();
@@ -138,18 +143,41 @@ public class AuthGUI extends JFrame {
         return button;
     }
 
-    private void performRegistration() {
+    private void performLogin() {
         executeOperation(() -> {
             String username = getUsername();
             String password = getPassword();
 
             try {
-                if (authService.createUser(username, password)) {
+                if (!authService.userExists(username)) {
+                    showErrorDialog("Login Failed", "User not found", false);
+                    return;
+                }
+                if (authService.login(username, password)) {
+                    showSuccessMessage("Login successful for: " + username);
+                    openEmailClient();
+                } else {
+                    showErrorDialog("Login Failed", "Invalid password", true);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }, "login");
+    }
+
+    private void performRegistration() {
+        executeOperation(() -> {
+            String username = getUsername();
+            String email = getEmail();
+            String password = getPassword();
+
+            try {
+                if (authService.createUser(username, email, password)) {
                     log("User created: " + username);
                 } else {
-                    showError("Registration Failed", "Username already exists");
+                    showError("Registration Failed", "Username or email already exists");
                 }
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }, "registration");
@@ -166,7 +194,7 @@ public class AuthGUI extends JFrame {
                 } else {
                     showError("Update Failed", "User does not exist");
                 }
-            } catch (RemoteException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }, "update");
@@ -191,7 +219,7 @@ public class AuthGUI extends JFrame {
                     } else {
                         showError("Deletion Failed", "User does not exist");
                     }
-                } catch (RemoteException e) {
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }
@@ -209,18 +237,23 @@ public class AuthGUI extends JFrame {
         }
     }
 
-    // Utils
     private boolean validateInput() {
         String username = getUsername();
+        String email = getEmail();
         String password = getPassword();
 
-        if (username.isEmpty() || password.isEmpty()) {
+        if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
             showError("Validation Error", "All fields are required");
             return false;
         }
 
-        if (!username.matches("^[a-zA-Z0-9@._-]{3,30}$")) {
+        if (!username.matches("^[a-zA-Z0-9._-]{3,30}$")) {
             showError("Validation Error", "Invalid username format");
+            return false;
+        }
+
+        if (!email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+            showError("Validation Error", "Invalid email format");
             return false;
         }
 
@@ -236,18 +269,23 @@ public class AuthGUI extends JFrame {
         return usernameField.getText().trim();
     }
 
+    private String getEmail() {
+        return emailField.getText().trim();
+    }
+
     private String getPassword() {
         return new String(passwordField.getPassword()).trim();
     }
 
     private void clearFields() {
         usernameField.setText("");
+        emailField.setText("");
         passwordField.setText("");
     }
 
     private void openEmailClient() {
         log("Opening email client...");
-        // TODO: Add actual implementation
+        // Placeholder for email client logic
     }
 
     private void log(String message) {

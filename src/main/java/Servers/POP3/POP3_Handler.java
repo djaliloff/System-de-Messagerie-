@@ -1,6 +1,7 @@
 package Servers.POP3;
 
 import Servers.Authentification.AuthService;
+import Servers.Utils.DatabaseUtil;
 
 import java.io.*;
 import java.net.Socket;
@@ -9,13 +10,17 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.List;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 public class POP3_Handler {
     private Socket clientSocket;
     private BufferedReader reader;
     private PrintWriter writer;
     private String currentUser;
-    private List<File> emails;
+    private List<Email> emails;
     private List<Boolean> markedForDeletion;
     private AuthService authService;
 
@@ -126,19 +131,33 @@ public class POP3_Handler {
     private void handleList() {
         writer.println("+OK " + emails.size() + " messages");
         for (int i = 0; i < emails.size(); i++) {
-            writer.println((i + 1) + " " + emails.get(i).length());
+            writer.println((i + 1) + " " + getEmailSize(emails.get(i)));
         }
         writer.println(".");
+    }
+
+    private long getTotalSize() {
+        return emails.stream().mapToLong(email -> email.content.length()).sum();
+    }
+
+    private long getEmailSize(Email email) {
+        return email.content.length();
     }
 
     private void handleRetr(String command) {
         int index = Integer.parseInt(command.substring(5).trim()) - 1;
         if (index >= 0 && index < emails.size() && !markedForDeletion.get(index)) {
-            try {
-                writer.println("+OK " + emails.get(index).length() + " octets");
-                sendEmail(emails.get(index));
-            } catch (IOException e) {
-                writer.println("-ERR Error retrieving message");
+            Email email = emails.get(index);
+            writer.println("+OK " + email.content.length() + " octets");
+            writer.println(email.content);
+            writer.println(".");
+            try (Connection conn = DatabaseUtil.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(
+                         "UPDATE emails SET is_read = TRUE WHERE email_id = ?")) {
+                stmt.setInt(1, email.id);
+                stmt.executeUpdate();
+            } catch (SQLException e) {
+                writer.println("-ERR Database error");
             }
         } else {
             writer.println("-ERR No such message");
@@ -168,20 +187,27 @@ public class POP3_Handler {
     private void loadUserEmails() {
         emails.clear();
         markedForDeletion.clear();
-        File userDir = new File("mailserver/" + currentUser);
-        if (userDir.exists()) {
-            File[] files = userDir.listFiles();
-            if (files != null) {
-                for (File email : files) {
-                    emails.add(email);
-                    markedForDeletion.add(false);
-                }
+        try (Connection conn = DatabaseUtil.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "CALL fetch_emails(?)")) {
+            stmt.setString(1, currentUser);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Email email = new Email(
+                        rs.getInt("email_id"),
+                        rs.getString("sender"),
+                        rs.getString("recipient"),
+                        rs.getString("subject"),
+                        rs.getString("content"),
+                        rs.getTimestamp("sent_at"),
+                        rs.getBoolean("is_read")
+                );
+                emails.add(email);
+                markedForDeletion.add(false);
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-    }
-
-    private long getTotalSize() {
-        return emails.stream().mapToLong(File::length).sum();
     }
 
     private void sendEmail(File emailFile) throws IOException {
@@ -195,10 +221,38 @@ public class POP3_Handler {
     }
 
     private void deleteMarkedEmails() {
-        for (int i = 0; i < emails.size(); i++) {
-            if (markedForDeletion.get(i)) {
-                emails.get(i).delete();
+        try (Connection conn = DatabaseUtil.getConnection()) {
+            for (int i = 0; i < emails.size(); i++) {
+                if (markedForDeletion.get(i)) {
+                    try (PreparedStatement stmt = conn.prepareStatement(
+                            "CALL delete_email(?)")) {
+                        stmt.setInt(1, emails.get(i).id);
+                        stmt.execute();
+                    }
+                }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    private static class Email {
+        int id;
+        String sender;
+        String recipient;
+        String subject;
+        String content;
+        java.sql.Timestamp sentAt;
+        boolean isRead;
+
+        Email(int id, String sender, String recipient, String subject, String content,
+              java.sql.Timestamp sentAt, boolean isRead) {
+            this.id = id;
+            this.sender = sender;
+            this.recipient = recipient;
+            this.subject = subject;
+            this.content = content;
+            this.sentAt = sentAt;
+            this.isRead = isRead;
         }
     }
 }

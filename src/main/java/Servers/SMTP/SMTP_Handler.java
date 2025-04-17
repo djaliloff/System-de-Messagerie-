@@ -8,6 +8,7 @@ import java.net.Socket;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -143,6 +144,8 @@ public class SMTP_Handler {
             writer.println("250 OK Message received");
         } catch (IOException e) {
             writer.println("451 Error storing message");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
