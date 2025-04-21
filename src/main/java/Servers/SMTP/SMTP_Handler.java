@@ -28,6 +28,7 @@ public class SMTP_Handler {
         try {
             Registry registry = LocateRegistry.getRegistry("localhost", 1099);
             authService = (AuthService) registry.lookup("AuthenticationService");
+            System.out.println("RMI connection successful");
         } catch (Exception e) {
             System.err.println("RMI Connection Error: " + e.getMessage());
             authService = null;
@@ -43,7 +44,7 @@ public class SMTP_Handler {
 
             String command;
             while ((command = reader.readLine()) != null) {
-                System.out.println("Commande reçue : " + command);
+                System.out.println("Command received: " + command);
 
                 if (command.startsWith("HELO")) {
                     writer.println("250 OK");
@@ -80,17 +81,22 @@ public class SMTP_Handler {
     private void handleMailFrom(String command) {
         if (isValidMail(command, 10)) {
             sender = cleanEmail(command.substring(10).trim());
+            System.out.println("Checking sender: " + sender);
             if (authService != null) {
                 try {
                     if (authService.userExists(sender)) {
+                        System.out.println("Sender recognized: " + sender);
                         writer.println("250 OK");
                     } else {
+                        System.out.println("Sender not found: " + sender);
                         writer.println("550 User unknown");
                     }
                 } catch (RemoteException e) {
+                    System.err.println("RemoteException in handleMailFrom: " + e.getMessage());
                     writer.println("451 Authentication service unavailable");
                 }
             } else {
+                System.err.println("AuthService is null");
                 writer.println("451 Authentication service unavailable");
             }
         } else {
@@ -106,18 +112,23 @@ public class SMTP_Handler {
 
         if (isValidMail(command, 8)) {
             String recipient = cleanEmail(command.substring(8).trim());
+            System.out.println("Checking recipient: " + recipient);
             if (authService != null) {
                 try {
                     if (authService.userExists(recipient)) {
+                        System.out.println("Recipient recognized: " + recipient);
                         recipients.add(recipient);
                         writer.println("250 OK");
                     } else {
+                        System.out.println("Recipient not found: " + recipient);
                         writer.println("550 Recipient unknown");
                     }
                 } catch (RemoteException e) {
+                    System.err.println("RemoteException in handleRcptTo: " + e.getMessage());
                     writer.println("451 Authentication service unavailable");
                 }
             } else {
+                System.err.println("AuthService is null");
                 writer.println("451 Authentication service unavailable");
             }
         } else {
@@ -159,17 +170,22 @@ public class SMTP_Handler {
     private void handleVrfy(String command) {
         if (isValidMail(command, 5)) {
             String user = cleanEmail(command.substring(5).trim());
+            System.out.println("Verifying user: " + user);
             if (authService != null) {
                 try {
                     if (authService.userExists(user)) {
+                        System.out.println("User verified: " + user);
                         writer.println("250 OK " + user);
                     } else {
+                        System.out.println("User not found: " + user);
                         writer.println("550 User not found");
                     }
                 } catch (RemoteException e) {
+                    System.err.println("RemoteException in handleVrfy: " + e.getMessage());
                     writer.println("451 Authentication service unavailable");
                 }
             } else {
+                System.err.println("AuthService is null");
                 writer.println("451 Authentication service unavailable");
             }
         } else {

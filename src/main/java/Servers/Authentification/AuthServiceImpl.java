@@ -12,10 +12,12 @@ public class AuthServiceImpl extends UnicastRemoteObject implements AuthService 
     }
 
     @Override
-    public boolean userExists(String username) throws RemoteException {
+    public boolean userExists(String identifier) throws RemoteException {
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement("SELECT COUNT(*) FROM users WHERE username = ?")) {
-            stmt.setString(1, username);
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT COUNT(*) FROM users WHERE username = ? OR email = ?")) {
+            stmt.setString(1, identifier);
+            stmt.setString(2, identifier);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 return rs.getInt(1) > 0;
@@ -26,10 +28,13 @@ public class AuthServiceImpl extends UnicastRemoteObject implements AuthService 
         return false;
     }
 
-    public boolean login(String username, String password) throws RemoteException {
+    @Override
+    public boolean login(String identifier, String password) throws RemoteException {
         try (Connection conn = DatabaseUtil.getConnection();
-             PreparedStatement stmt = conn.prepareStatement("SELECT password FROM users WHERE username = ?")) {
-            stmt.setString(1, username);
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT password FROM users WHERE username = ? OR email = ?")) {
+            stmt.setString(1, identifier);
+            stmt.setString(2, identifier);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 String hashedPassword = rs.getString("password");
@@ -49,10 +54,11 @@ public class AuthServiceImpl extends UnicastRemoteObject implements AuthService 
         String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
         try (Connection conn = DatabaseUtil.getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "INSERT INTO users (username, email, password) VALUES (?, ?, ?)")) {
+                     "INSERT INTO users (username, email, password, clear_password) VALUES (?, ?, ?, ?)")) {
             stmt.setString(1, username);
             stmt.setString(2, email);
             stmt.setString(3, hashedPassword);
+            stmt.setString(4, password);
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RemoteException("Database error", e);

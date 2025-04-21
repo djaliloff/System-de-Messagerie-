@@ -137,40 +137,52 @@ public class POP3_Handler {
     }
 
     private long getTotalSize() {
-        return emails.stream().mapToLong(email -> email.content.length()).sum();
+        return emails.stream().mapToLong(email -> email.size).sum();
     }
 
     private long getEmailSize(Email email) {
-        return email.content.length();
+        return email.size;
     }
 
     private void handleRetr(String command) {
-        int index = Integer.parseInt(command.substring(5).trim()) - 1;
-        if (index >= 0 && index < emails.size() && !markedForDeletion.get(index)) {
-            Email email = emails.get(index);
-            writer.println("+OK " + email.content.length() + " octets");
-            writer.println(email.content);
-            writer.println(".");
-            try (Connection conn = DatabaseUtil.getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(
-                         "UPDATE emails SET is_read = TRUE WHERE email_id = ?")) {
-                stmt.setInt(1, email.id);
-                stmt.executeUpdate();
-            } catch (SQLException e) {
-                writer.println("-ERR Database error");
+        try {
+            int index = Integer.parseInt(command.substring(5).trim()) - 1;
+            if (index >= 0 && index < emails.size() && !markedForDeletion.get(index)) {
+                Email email = emails.get(index);
+                writer.println("+OK " + email.size + " octets");
+                writer.println("From: " + email.senderEmail);
+                writer.println("Subject: " + email.subject);
+                writer.println("Date: " + email.sentAt);
+                writer.println();
+                writer.println(email.content);
+                writer.println(".");
+                try (Connection conn = DatabaseUtil.getConnection();
+                     PreparedStatement stmt = conn.prepareStatement(
+                             "UPDATE emails SET is_read = TRUE WHERE email_id = ?")) {
+                    stmt.setInt(1, email.id);
+                    stmt.executeUpdate();
+                } catch (SQLException e) {
+                    writer.println("-ERR Database error");
+                }
+            } else {
+                writer.println("-ERR No such message");
             }
-        } else {
-            writer.println("-ERR No such message");
+        } catch (NumberFormatException e) {
+            writer.println("-ERR Invalid message number");
         }
     }
 
     private void handleDele(String command) {
-        int index = Integer.parseInt(command.substring(5).trim()) - 1;
-        if (index >= 0 && index < emails.size()) {
-            markedForDeletion.set(index, true);
-            writer.println("+OK Message marked for deletion");
-        } else {
-            writer.println("-ERR No such message");
+        try {
+            int index = Integer.parseInt(command.substring(5).trim()) - 1;
+            if (index >= 0 && index < emails.size()) {
+                markedForDeletion.set(index, true);
+                writer.println("+OK Message marked for deletion");
+            } else {
+                writer.println("-ERR No such message");
+            }
+        } catch (NumberFormatException e) {
+            writer.println("-ERR Invalid message number");
         }
     }
 
@@ -195,28 +207,18 @@ public class POP3_Handler {
             while (rs.next()) {
                 Email email = new Email(
                         rs.getInt("email_id"),
-                        rs.getString("sender"),
-                        rs.getString("recipient"),
+                        rs.getString("sender_email"),
                         rs.getString("subject"),
                         rs.getString("content"),
                         rs.getTimestamp("sent_at"),
-                        rs.getBoolean("is_read")
+                        rs.getInt("size")
                 );
                 emails.add(email);
                 markedForDeletion.add(false);
             }
         } catch (SQLException e) {
+            System.err.println("Failed to load emails for user " + currentUser + ": " + e.getMessage());
             e.printStackTrace();
-        }
-    }
-
-    private void sendEmail(File emailFile) throws IOException {
-        try (BufferedReader emailReader = new BufferedReader(new FileReader(emailFile))) {
-            String line;
-            while ((line = emailReader.readLine()) != null) {
-                writer.println(line);
-            }
-            writer.println(".");
         }
     }
 
@@ -225,34 +227,34 @@ public class POP3_Handler {
             for (int i = 0; i < emails.size(); i++) {
                 if (markedForDeletion.get(i)) {
                     try (PreparedStatement stmt = conn.prepareStatement(
-                            "CALL delete_email(?)")) {
+                            "UPDATE emails SET is_read = 1 WHERE email_id = ?")) {
                         stmt.setInt(1, emails.get(i).id);
-                        stmt.execute();
+                        stmt.executeUpdate();
                     }
                 }
             }
         } catch (SQLException e) {
+            System.err.println("Failed to delete marked emails: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
     private static class Email {
         int id;
-        String sender;
-        String recipient;
+        String senderEmail;
         String subject;
         String content;
         java.sql.Timestamp sentAt;
-        boolean isRead;
+        int size;
 
-        Email(int id, String sender, String recipient, String subject, String content,
-              java.sql.Timestamp sentAt, boolean isRead) {
+        Email(int id, String senderEmail, String subject, String content,
+              java.sql.Timestamp sentAt, int size) {
             this.id = id;
-            this.sender = sender;
-            this.recipient = recipient;
+            this.senderEmail = senderEmail;
             this.subject = subject;
             this.content = content;
             this.sentAt = sentAt;
-            this.isRead = isRead;
+            this.size = size;
         }
     }
 }
